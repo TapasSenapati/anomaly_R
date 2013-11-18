@@ -1,0 +1,13 @@
+plot.igraph(graph[[1]])
+
+V(graph[[1]])$name - vertex list of graph
+
+> x = V(graph[[1]])$name
+> y = V(graph[[2]])$name
+> intersect(x, y)
+> length(intersect(x, y))
+
+
+plot(ged_x,ged,type="l")
+
+ x <- c(paste(vertex_list[[1]][,1], vertex_list[[1]][,2]), paste(vertex_list[[1]][,2], vertex_list[[1]][,1]))
