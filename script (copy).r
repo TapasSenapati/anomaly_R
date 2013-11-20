@@ -1,9 +1,4 @@
 require(igraph)
-library(multicore)
-library(doMC)
-library(foreach)
-
-registerDoMC()
 args <- commandArgs(trailingOnly = TRUE)
 setwd("~/Desktop/R_code/")
 
@@ -137,4 +132,5 @@ plot(median_ged_x,median_ged,type="l",xlab="days", ylab="median graph edit dista
 abline(h=upper_thres,col="red",lty=2)
 abline(h=lower_thres,col="red",lty=2)
 title(main="Median Graph Edit distance", col.main="blue")
+
 

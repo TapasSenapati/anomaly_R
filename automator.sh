@@ -1,5 +1,8 @@
 #!/bin/bash
 
+mkdir plots
+mkdir output
+
 unzip ./as-733.zip -d ./as-733
 unzip ./enron.zip -d ./enron
 unzip ./p2p-Gnutella.zip -d ./p2p-Gnutella
