@@ -151,7 +151,7 @@ entropy<-function(i)
 entropy_distance = c();
 
 for(i in 1:(total_graphs-1))
-  entropy_distance[i] = entropy(i) - entropy(i+1)
+  entropy_distance[i] = entropy(i+1) - entropy(i)
 
 entropy_distance[is.nan(entropy_distance)] = 0
 
@@ -261,3 +261,42 @@ plot(spectral_distance_x,spectral_distance,type="l",xlab="days", ylab="Spectral 
 abline(h=upper_thres,col="red",lty=2)
 abline(h=lower_thres,col="red",lty=2)
 title(main="Spectral distance", col.main="blue")
+
+##########################################################################################################################
+###########################                     DIAMETER DISTANCE                              #########################
+##########################################################################################################################
+
+
+#calculate diameter distance
+
+# diameter_dist<-function(i)
+# {
+#   shortestPathsMatrix <- shortest.paths(graph[[i]])
+#   numCols <- ncol(shortestPathsMatrix)
+#   numRows <- nrow(shortestPathsMatrix)
+#   sum<-0  
+#   
+#   for(k in 1:(numRows))
+#   {
+#     getMax<-max(shortestPathsMatrix[k,])
+#     sum <- sum+getMax	
+#   }
+#   
+#   shortestPathsMatrix1 <- shortest.paths(graph[[i+1]]) 
+#   numCols1 <- ncol(shortestPathsMatrix1)
+#   numRows1 <- nrow(shortestPathsMatrix1)
+#   sum1<-0	
+#   
+#   for(s in 1:(numRows1))
+#   {
+#     getMax1 <- max(shortestPathsMatrix1[s,])
+#     sum1<- sum1+getMax1
+#   }
+#   
+#   return(abs(sum-sum1))
+# }
+# 
+# 
+# diameterDist <- list()
+# for(i in 1:(total_graphs-1))
+#   diameterDist[i] = diameter_dist(i)
