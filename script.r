@@ -1,14 +1,11 @@
 require(igraph)
-library(multicore)
-library(doMC)
-library(foreach)
+require(compiler);
 
-registerDoMC()
 args <- commandArgs(trailingOnly = TRUE)
 setwd("~/Desktop/R_code/")
 
 #dirname <- args[1]
-dirname <- "p2p-Gnutella"
+dirname <- "enron"
 
 total_graphs = length(list.files(paste("./",dirname,"/",sep = "")))   #total number of graphs in time series
 
@@ -138,3 +135,103 @@ abline(h=upper_thres,col="red",lty=2)
 abline(h=lower_thres,col="red",lty=2)
 title(main="Median Graph Edit distance", col.main="blue")
 
+##########################################################################################################################
+###########################                     ENTROPY                                          #########################
+##########################################################################################################################
+entropy_distance = c();
+entropy<-function()
+{
+  prevGraphEntropy = 0;
+  currGraphEntropy = 0;
+  for(i in 1:total_graphs)
+  {
+    normweight = 1/no_edges[[i]];
+    currGraphEntropy = -(no_edges[[i]])*(normweight - log(normweight));
+    if (prevGraphEntropy != 0)
+      entropy_distance[i] = currGraphEntropy - prevGraphEntropy;
+    prevGraphEntropy = currGraphEntropy;
+  }
+}
+
+entropy();
+g <- cmpfun(entropy);
+g();
+
+median_entropy_x = seq(from = 1, to = total_graphs, by = 1)
+med_entropy_distance = median(as.numeric(entropy_distance))
+sd_entropy_distance = sd(as.numeric(entropy_distance))
+upper_thres = med_entropy_distance + 2*sd_entropy_distance
+lower_thres = med_entropy_distance - 2*sd_entropy_distance
+
+#write to output file
+sink("./output/entropy_outfile.txt")
+cat(upper_thres)
+cat(" ")
+cat(lower_thres)
+for(i in 1:(total_graphs)){
+  cat("\n")
+  cat(i)
+  cat(" ")
+  cat(paste(entropy_distance[i]))
+}  
+sink()
+
+pdf("./plots/entropy.pdf")
+plot(ged_x,ged,type="l",xlab="days", ylab="Entropy distance")
+abline(h=upper_thres,col="red",lty=2)
+abline(h=lower_thres,col="red",lty=2)
+title(main="Entropy distance", col.main="blue")
+
+
+##########################################################################################################################
+###########################                     SPECTRAL DISTANCE                                #########################
+##########################################################################################################################
+spectralDistance<-function()
+{
+  prevGraphEigenValues = c();
+  currGraphEigenValues = rep(0,5);
+  distance = rep(0,total_graphs);
+  k=3;#consider k largest eigen values
+  for(i in 1:total_graphs)
+  {	
+    g_laplacian = graph.laplacian(graph[[i]]);
+    if(nrow(g_laplacian) > 0)#sometimes the graph laplacian is zero length?
+    {
+      if(dirname == "enron")
+      {
+        eigvalues = eigen(g_laplacian, only.values=TRUE)$values;
+        currGraphEigenValues = eigvalues[1:k];
+      }
+      else
+      {
+        func <- function(x, extra=NULL) { as.vector(g_laplacian %*% x) };
+        currGraphEigenValues = arpack(func, options=list(n=vcount(graph[[i]]), nev=k, 
+                                                         ncv=8, which="LM", maxiter=200))$values
+      }
+      if (length(prevGraphEigenValues) == k)#ignore the first one
+      {
+        sumdiffsq  = 0;
+        sumcurrsq = 0;
+        sumprevsq = 0;
+        minsq = 0;
+        for(j in 1:k)
+        {
+          sumdiffsq = sumdiffsq + (abs(currGraphEigenValues[j]) - abs(prevGraphEigenValues[j]))^2;
+          sumcurrsq = sumcurrsq + abs(currGraphEigenValues[j])^2;
+          sumprevsq = sumprevsq + abs(prevGraphEigenValues[j])^2;
+        }
+        minsq = min(sumcurrsq , sumprevsq);
+        #cat("Minsq: ", minsq);
+        distance[i] = (sumdiffsq/minsq)^0.5;
+        print(distance[i]);
+      }
+      prevGraphEigenValues = currGraphEigenValues;
+      currGraphEigenValues = rep(0,5);
+      #print(i)
+    }
+  }
+}
+
+library(compiler);
+h <- cmpfun(spectralDistance);
+h();
