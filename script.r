@@ -2,7 +2,7 @@ require(igraph)
 require(compiler)
 
 args <- commandArgs(trailingOnly = TRUE)
-setwd("~/Desktop/R_code/")
+setwd("C:\Users\Tapas\Documents\GitHub\anomaly_R")
 
 #dirname <- args[1]
 dirname <- "enron"
@@ -67,7 +67,9 @@ for(i in 1:(total_graphs-1)){
 }  
 sink()
 
-pdf("./plots/ged.pdf")
+#png("./plots/ged.#png")
+dev.off()
+
 plot(ged_x,ged,type="l",xlab="days", ylab="edit distance")
 abline(h=upper_thres,col="red",lty=2)
 abline(h=lower_thres,col="red",lty=2)
@@ -129,7 +131,8 @@ for(i in 1:(total_graphs-5)){
 }  
 sink()
 
-pdf("./plots/median_ged.pdf")
+#png("./plots/median_ged.#png")
+dev.off()
 plot(median_ged_x,median_ged,type="l",xlab="days", ylab="median graph edit distance")
 abline(h=upper_thres,col="red",lty=2)
 abline(h=lower_thres,col="red",lty=2)
@@ -150,9 +153,11 @@ entropy_distance = c();
 for(i in 1:(total_graphs-1))
   entropy_distance[i] = entropy(i) - entropy(i+1)
 
-median_entropy_x = seq(from = 1, to = total_graphs, by = 1)
-med_entropy_distance = median(as.numeric(entropy_distance))
-sd_entropy_distance = sd(as.numeric(entropy_distance))
+entropy_distance[is.nan(entropy_distance)] = 0
+
+median_entropy_x = seq(from = 1, to = (total_graphs-1), by = 1)
+med_entropy_distance = median(entropy_distance)
+sd_entropy_distance = sd(entropy_distance)
 upper_thres = med_entropy_distance + 2*sd_entropy_distance
 lower_thres = med_entropy_distance - 2*sd_entropy_distance
 
@@ -169,7 +174,8 @@ for(i in 1:(total_graphs)){
 }  
 sink()
 
-pdf("./plots/entropy.pdf")
+#png("./plots/entropy.#png")
+dev.off()
 plot(ged_x,ged,type="l",xlab="days", ylab="Entropy distance")
 abline(h=upper_thres,col="red",lty=2)
 abline(h=lower_thres,col="red",lty=2)
@@ -216,15 +222,42 @@ spectralDistance<-function()
         minsq = min(sumcurrsq , sumprevsq);
         #cat("Minsq: ", minsq);
         distance[i] = (sumdiffsq/minsq)^0.5;
-        print(distance[i]);
+        #print(distance[i]);
       }
       prevGraphEigenValues = currGraphEigenValues;
       currGraphEigenValues = rep(0,5);
       #print(i)
     }
   }
+  return(distance)
 }
 
-library(compiler);
-h <- cmpfun(spectralDistance);
-h();
+
+spectral_distance <- spectralDistance()
+spectral_distance[is.na(spectral_distance)] <- 0
+
+spectral_distance_x = seq(from = 1, to = (total_graphs), by = 1)
+med_spectral_distance = median(spectral_distance)
+sd_spectral_distance= sd(spectral_distance)
+upper_thres = med_spectral_distance + 2*sd_spectral_distance
+lower_thres = med_spectral_distance - 2*sd_spectral_distance
+
+#write to output file
+sink("./output/spectral_distance_outfile.txt")
+cat(upper_thres)
+cat(" ")
+cat(lower_thres)
+for(i in 1:(total_graphs)){
+  cat("\n")
+  cat(i)
+  cat(" ")
+  cat(paste(spectral_distance[i]))
+}  
+sink()
+
+#png("./plots/entropy.#png")
+dev.off()
+plot(spectral_distance_x,spectral_distance,type="l",xlab="days", ylab="Spectral distance")
+abline(h=upper_thres,col="red",lty=2)
+abline(h=lower_thres,col="red",lty=2)
+title(main="Spectral distance", col.main="blue")
