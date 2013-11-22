@@ -1,5 +1,5 @@
 require(igraph)
-require(compiler);
+require(compiler)
 
 args <- commandArgs(trailingOnly = TRUE)
 setwd("~/Desktop/R_code/")
@@ -138,24 +138,17 @@ title(main="Median Graph Edit distance", col.main="blue")
 ##########################################################################################################################
 ###########################                     ENTROPY                                          #########################
 ##########################################################################################################################
-entropy_distance = c();
-entropy<-function()
+
+entropy<-function(i)
 {
-  prevGraphEntropy = 0;
-  currGraphEntropy = 0;
-  for(i in 1:total_graphs)
-  {
     normweight = 1/no_edges[[i]];
     currGraphEntropy = -(no_edges[[i]])*(normweight - log(normweight));
-    if (prevGraphEntropy != 0)
-      entropy_distance[i] = currGraphEntropy - prevGraphEntropy;
-    prevGraphEntropy = currGraphEntropy;
-  }
 }
 
-entropy();
-g <- cmpfun(entropy);
-g();
+entropy_distance = c();
+
+for(i in 1:(total_graphs-1))
+  entropy_distance[i] = entropy(i) - entropy(i+1)
 
 median_entropy_x = seq(from = 1, to = total_graphs, by = 1)
 med_entropy_distance = median(as.numeric(entropy_distance))
