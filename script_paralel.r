@@ -1,11 +1,13 @@
 require(igraph)
 require(compiler)
+require(doSNOW)
+require(foreach)
 
 args <- commandArgs(trailingOnly = TRUE)
-setwd("C:\Users\Tapas\Documents\GitHub\anomaly_R")
+setwd("~/Desktop/R_code/")
 
 #dirname <- args[1]
-dirname <- "enron"
+dirname <- "as-733"
 
 total_graphs = length(list.files(paste("./",dirname,"/",sep = "")))   #total number of graphs in time series
 
@@ -25,6 +27,18 @@ for(i in 1:total_graphs){
   graph[[i]] <- graph.data.frame(vertex_list[[i]], directed=F)
 }
 
+#create appropriate number of threads
+threads <- 5
+
+if(dirname == "reality-mining-voices"){
+  threads <- 10
+}
+if(dirname == "as-733"){
+  threads <- 20
+}
+
+cl <- makeCluster(threads)
+registerDoSNOW(cl)
 ##########################################################################################################################
 ###########################                     GRAPH EDIT DISTANCE                              #########################
 ##########################################################################################################################
@@ -44,9 +58,10 @@ calculate_ged <- function(x,y) {
 }
 
 ged = list()
+
+N <- total_graphs-1
 #calculate graph edit distance
-for(i in 1:(total_graphs-1))
-  ged[i] = calculate_ged(i,(i+1))
+ged = foreach(i=1:N) %dopar% calculate_ged(i,i+1)
 
 ged_x = seq(from = 1, to = total_graphs-1, by = 1)
 med_ged = median(as.numeric(ged))
@@ -55,21 +70,26 @@ upper_thres = med_ged + 2*sd_ged
 lower_thres = med_ged - 2*sd_ged
 
 #write to output file
-sink("./output/ged_outfile.txt")
+sink("./output/ged_anomalies.txt")
+j=0;
 cat(upper_thres)
 cat(" ")
 cat(lower_thres)
+cat("\n")
 for(i in 1:(total_graphs-1)){
-  cat("\n")
-  cat(i)
-  cat(" ")
-  cat(paste(ged[i]))
-}  
+  if(ged[i] < lower_thres | ged[i] > upper_thres)
+  {
+    cat(i)
+    cat(" ")
+    cat(paste(ged[i]))
+    cat("\n")
+    j = j+1;
+  }
+}
+cat(paste("Total Anomalies: ",j))  
 sink()
 
-#png("./plots/ged.#png")
-dev.off()
-
+X11()
 plot(ged_x,ged,type="l",xlab="days", ylab="edit distance")
 abline(h=upper_thres,col="red",lty=2)
 abline(h=lower_thres,col="red",lty=2)
@@ -107,10 +127,10 @@ for(i in 1:(total_graphs-5)){
   set_median_graph[i] = calculate_g_bar(i)
 }
 
+N <- total_graphs-5
 median_ged = list()
 #calculate median graph edit distance
-for(i in 1:(total_graphs-5))
-  median_ged[i] = calculate_ged(as.numeric(set_median_graph[i]),(i+5))
+median_ged = foreach(i=1:N) %dopar% calculate_ged(as.numeric(set_median_graph[i]),(i+5))
 
 median_ged_x = seq(from = 5, to = total_graphs-1, by = 1)
 med_median_ged = median(as.numeric(median_ged))
@@ -119,20 +139,26 @@ upper_thres = med_median_ged + 2*sd_median_ged
 lower_thres = med_median_ged - 2*sd_median_ged 
 
 #write to output file
-sink("./output/median_ged_outfile.txt")
+sink("./output/median_ged_anomalies.txt")
+j=0;
 cat(upper_thres)
 cat(" ")
 cat(lower_thres)
+cat("\n")
 for(i in 1:(total_graphs-5)){
-  cat("\n")
-  cat(i)
-  cat(" ")
-  cat(paste(median_ged[i]))
-}  
+  if(median_ged[[i]] < lower_thres | median_ged[[i]] > upper_thres)
+  {
+    cat(i)
+    cat(" ")
+    cat(paste(median_ged[i]))
+    cat("\n")
+    j = j+1;
+  }
+}
+cat(paste("Total Anomalies: ",j))  
 sink()
 
-#png("./plots/median_ged.#png")
-dev.off()
+X11()
 plot(median_ged_x,median_ged,type="l",xlab="days", ylab="median graph edit distance")
 abline(h=upper_thres,col="red",lty=2)
 abline(h=lower_thres,col="red",lty=2)
@@ -146,37 +172,44 @@ entropy<-function(i)
 {
     normweight = 1/no_edges[[i]];
     currGraphEntropy = -(no_edges[[i]])*(normweight - log(normweight));
+    if(is.nan(currGraphEntropy))
+      return(0)
+    else
+      return(currGraphEntropy)
 }
 
-entropy_distance = c();
-
-for(i in 1:(total_graphs-1))
-  entropy_distance[i] = entropy(i+1) - entropy(i)
-
-entropy_distance[is.nan(entropy_distance)] = 0
+entropy_distance = list();
+N <- total_graphs-1
+entropy_distance = foreach(i=1:N) %dopar% as.numeric(entropy(i+1) - entropy(i))
 
 median_entropy_x = seq(from = 1, to = (total_graphs-1), by = 1)
-med_entropy_distance = median(entropy_distance)
-sd_entropy_distance = sd(entropy_distance)
+med_entropy_distance = median(as.numeric(entropy_distance))
+sd_entropy_distance = sd(as.numeric(entropy_distance))
 upper_thres = med_entropy_distance + 2*sd_entropy_distance
 lower_thres = med_entropy_distance - 2*sd_entropy_distance
 
 #write to output file
-sink("./output/entropy_outfile.txt")
+sink("./output/entropy_distance_anomalies.txt")
+j=0;
 cat(upper_thres)
 cat(" ")
 cat(lower_thres)
-for(i in 1:(total_graphs)){
-  cat("\n")
-  cat(i)
-  cat(" ")
-  cat(paste(entropy_distance[i]))
-}  
+cat("\n")
+for(i in 1:(total_graphs-1)){
+  if(entropy_distance[i] < lower_thres | entropy_distance[i] > upper_thres)
+  {
+    cat(i)
+    cat(" ")
+    cat(paste(entropy_distance[i]))
+    cat("\n")
+    j = j+1;
+  }
+}
+cat(paste("Total Anomalies: ",j)) 
 sink()
 
-#png("./plots/entropy.#png")
-dev.off()
-plot(ged_x,ged,type="l",xlab="days", ylab="Entropy distance")
+X11()
+plot(median_entropy_x,entropy_distance,type="l",xlab="days", ylab="Entropy distance")
 abline(h=upper_thres,col="red",lty=2)
 abline(h=lower_thres,col="red",lty=2)
 title(main="Entropy distance", col.main="blue")
@@ -243,20 +276,26 @@ upper_thres = med_spectral_distance + 2*sd_spectral_distance
 lower_thres = med_spectral_distance - 2*sd_spectral_distance
 
 #write to output file
-sink("./output/spectral_distance_outfile.txt")
+sink("./output/spectral_distance_anomalies.txt")
+j=0;
 cat(upper_thres)
 cat(" ")
 cat(lower_thres)
-for(i in 1:(total_graphs)){
-  cat("\n")
-  cat(i)
-  cat(" ")
-  cat(paste(spectral_distance[i]))
-}  
+cat("\n")
+for(i in 1:(total_graphs-1)){
+  if(spectral_distance[i] < lower_thres | spectral_distance[i] > upper_thres)
+  {
+    cat(i)
+    cat(" ")
+    cat(paste(spectral_distance[i]))
+    cat("\n")
+    j = j+1;
+  }
+}
+cat(paste("Total Anomalies: ",j)) 
 sink()
 
-#png("./plots/entropy.#png")
-dev.off()
+X11()
 plot(spectral_distance_x,spectral_distance,type="l",xlab="days", ylab="Spectral distance")
 abline(h=upper_thres,col="red",lty=2)
 abline(h=lower_thres,col="red",lty=2)
@@ -269,34 +308,49 @@ title(main="Spectral distance", col.main="blue")
 
 #calculate diameter distance
 
-# diameter_dist<-function(i)
-# {
-#   shortestPathsMatrix <- shortest.paths(graph[[i]])
-#   numCols <- ncol(shortestPathsMatrix)
-#   numRows <- nrow(shortestPathsMatrix)
-#   sum<-0  
-#   
-#   for(k in 1:(numRows))
-#   {
-#     getMax<-max(shortestPathsMatrix[k,])
-#     sum <- sum+getMax	
-#   }
-#   
-#   shortestPathsMatrix1 <- shortest.paths(graph[[i+1]]) 
-#   numCols1 <- ncol(shortestPathsMatrix1)
-#   numRows1 <- nrow(shortestPathsMatrix1)
-#   sum1<-0	
-#   
-#   for(s in 1:(numRows1))
-#   {
-#     getMax1 <- max(shortestPathsMatrix1[s,])
-#     sum1<- sum1+getMax1
-#   }
-#   
-#   return(abs(sum-sum1))
-# }
-# 
-# 
-# diameterDist <- list()
-# for(i in 1:(total_graphs-1))
-#   diameterDist[i] = diameter_dist(i)
+diameter_dist<-function(i)
+{
+  shortestPathsMatrix <- shortest.paths(graph[[i]])
+  shortestPathsMatrix[!is.finite(shortestPathsMatrix)] <- 0
+  total <- sum(apply(shortestPathsMatrix, 1, max))
+  
+  shortestPathsMatrix1 <- shortest.paths(graph[[i+1]]) 
+  shortestPathsMatrix1[!is.finite(shortestPathsMatrix1)] <- 0
+  total1 <- sum(apply(shortestPathsMatrix1, 1, max))
+
+  return(abs(total-total1))
+}
+
+
+diameterDist <- rep(0,total_graphs-1);
+
+N <- total_graphs-1
+diameterDist = foreach(i=1:N,.packages="igraph") %dopar% diameter_dist(i)
+
+diameterDist_x = seq(from = 1, to = (total_graphs-1), by = 1)
+med_diameterDist = median(as.numeric(diameterDist))
+sd_diameterDist = sd(as.numeric(diameterDist))
+upper_thres = med_diameterDist + 2*sd_diameterDist
+lower_thres = med_diameterDist - 2*sd_diameterDist
+
+#write to output file
+sink("./output/diameter_outfile.txt")
+cat(upper_thres)
+cat(" ")
+cat(lower_thres)
+for(i in 1:(total_graphs-1)){
+  if(diameterDist[i] < lower_thres | diameterDist[i] > upper_thres){
+    cat("\n")
+    cat(i)
+    cat(" ")
+    cat(paste(diameterDist[i]))
+  }
+}  
+sink()
+
+X11()
+plot(diameterDist_x,diameterDist,type="l",xlab="days", ylab="Diameter distance")
+abline(h=upper_thres,col="red",lty=2)
+abline(h=lower_thres,col="red",lty=2)
+title(main="Diameter distance", col.main="blue")
+stopCluster(cl)
